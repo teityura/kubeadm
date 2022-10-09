@@ -1,0 +1,63 @@
+- name: Create .kube directory
+  file:
+    path: /root/.kube
+    state: directory
+    mode: 0755
+
+- name: Generate token
+  command: kubeadm token generate
+  register: result_token
+
+- name: Initialize kubeadm
+  command:
+    cmd: >-
+      kubeadm init --pod-network-cidr=10.100.0.0/16
+        --token {{ result_token.stdout }}
+    creates: /etc/kubernetes/kubelet.conf
+
+- name: Get hash
+  shell: >-
+    openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt |
+      openssl rsa -pubin -outform der 2>/dev/null |
+      openssl dgst -sha256 -hex |
+      sed 's/^.* //'
+  register: result_hash
+
+- name: Copy kube config
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    remote_src: yes
+    force: no
+
+- name: Download manifest for tigera-operator
+  get_url:
+    url: https://raw.githubusercontent.com/projectcalico/calico/v3.24.1/manifests/tigera-operator.yaml
+    dest: /root/.kube/
+
+- name: Get result_grepc_tigera_operator
+  shell: kubectl -n tigera-operator get pod | grep -c tigera-operator
+  register: result_grepc_tigera_operator
+  check_mode: false
+  changed_when: false
+  ignore_errors: true
+
+# command: kubectl apply -f /root/.kube/tigera-operator.yaml
+# => invalid: metadata.annotations: Too long: must have at most 262144 bytes
+- name: Apply manifest for tigera-operator
+  command: kubectl create -f /root/.kube/tigera-operator.yaml
+  when: result_grepc_tigera_operator.stdout == '0'
+
+- name: Download manifest custom-resources
+  get_url:
+    url: https://raw.githubusercontent.com/projectcalico/calico/v3.24.1/manifests/custom-resources.yaml
+    dest: /root/.kube/
+
+- name: Replace manifest cidr for custom-resources
+  replace:
+    path: /root/.kube/custom-resources.yaml
+    regexp: 192.168.0.0/16
+    replace: 10.100.0.0/16
+
+- name: Install custom-resources
+  command: kubectl apply -f /root/.kube/custom-resources.yaml

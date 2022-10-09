@@ -1,0 +1,15 @@
+- name: Delete all node
+  command:
+    cmd: kubectl delete node --all
+    removes: /etc/kubernetes/admin.conf
+  when: inventory_hostname in groups['master'][0]
+
+- name: Reset kubeadm
+  command:
+    cmd: kubeadm reset -f
+    removes: /etc/kubernetes/kubelet.conf
+
+- name: Delete .kube directory
+  file:
+    path: /root/.kube
+    state: absent

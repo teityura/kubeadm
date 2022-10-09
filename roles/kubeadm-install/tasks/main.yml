@@ -1,0 +1,3 @@
+- import_tasks: set_swap.yml
+- import_tasks: set_module.yml
+- import_tasks: install_kubeadm.yml

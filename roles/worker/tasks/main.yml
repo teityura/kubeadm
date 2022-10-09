@@ -1,0 +1,7 @@
+- name: Initialize kubeadm
+  command: >-
+    kubeadm join {{ hostvars[groups['master'][0]].ansible_default_ipv4.address }}:6443
+      --token {{ hostvars[groups['master'][0]].result_token.stdout }}
+      --discovery-token-ca-cert-hash sha256:{{ hostvars[groups['master'][0]].result_hash.stdout }}
+  args:
+    creates: /etc/kubernetes/kubelet.conf

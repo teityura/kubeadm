@@ -1,0 +1,42 @@
+- name: Update apt-cache
+  apt:
+    update_cache: yes
+
+- name: Install apt-transport-https curl
+  apt:
+    pkg:
+      - apt-transport-https
+      - curl
+
+- name: Add key for kubeadm
+  apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    state: present
+
+- name: Add repogitory for kubeadm
+  apt_repository:
+    repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+    filename: kubernetes.list
+    update_cache: yes
+
+- name: Install kubelet kubeadm kubectl
+  apt:
+    pkg:
+      - kubelet
+      - kubeadm
+      - kubectl
+
+- name: Hold kubeadm version
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  with_list:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: Set cgroup-driver for kubelet
+  lineinfile:
+    dest: /etc/default/kubelet
+    line: KUBELET_EXTRA_ARGS=--cgroup-driver=systemd
+    create: true

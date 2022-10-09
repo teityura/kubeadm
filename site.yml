@@ -1,0 +1,55 @@
+- hosts: localhost
+  gather_facts: true
+  roles:
+    - role: ssh
+      tags:
+        - ssh
+        - never
+
+- hosts: all
+  gather_facts: false
+  user: "{{ INITIALIZE_USER }}"
+  become: true
+  become_method: sudo
+  roles:
+    - role: user
+      tags:
+        - user
+        - never
+
+- hosts: all
+  gather_facts: false
+  user: root
+  roles:
+    - role: crio
+      tags: crio
+
+    - role: kubeadm-install
+      tags: kubeadm-install
+
+- hosts: master
+  gather_facts: true
+  user: root
+  roles:
+    - role: master
+      tags:
+        - master
+        - kubeadm-init
+
+- hosts: worker
+  gather_facts: false
+  user: root
+  roles:
+    - role: worker
+      tags:
+        - worker
+        - kubeadm-init
+
+- hosts: all
+  gather_facts: false
+  user: root
+  roles:
+    - role: kubeadm-delete
+      tags:
+        - kubeadm-delete
+        - never

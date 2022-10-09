@@ -1,0 +1,72 @@
+- name: Load kernel module for crio
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - overlay
+    - br_netfilter
+
+- name: Put overlay.conf, br_netfilter.conf
+  lineinfile:
+    path: "/etc/modules-load.d/{{ item }}.conf"
+    line: "{{ item }}"
+    create: true
+  with_items:
+    - overlay
+    - br_netfilter
+
+- name: Put 99-kubernetes-cri.conf
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/99-kubernetes-cri.conf
+    state: present
+  with_items:
+    - name: net.bridge.bridge-nf-call-iptables
+      value: 1
+    - name: net.ipv4.ip_forward
+      value: 1
+    - name: net.bridge.bridge-nf-call-ip6tables
+      value: 1
+
+- name: Set crio_os_version
+  set_fact:
+    crio_version: 1.24
+    crio_os_version: xUbuntu_20.04
+
+- name: Add key for cri-o-runc
+  apt_key:
+    url: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/{{ crio_os_version }}/Release.key"
+    state: present
+
+- name: Add repogitory for cri-o-runc
+  apt_repository:
+    repo: "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/{{ crio_os_version }}/ /"
+    update_cache: yes
+
+- name: Add key for cri-o
+  apt_key:
+    url: "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:{{ crio_version }}/{{ crio_os_version }}/Release.key"
+    state: present
+
+- name: Add repogitory for cri-o
+  apt_repository:
+    repo: "deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/{{ crio_version }}/{{ crio_os_version }}/ /"
+    update_cache: yes
+
+- name: Update apt-cache
+  apt:
+    update_cache: yes
+
+- name: Install crio cri-o-runc
+  apt:
+    pkg:
+      - cri-o
+      - cri-o-runc
+
+- name: Start crio
+  systemd:
+    name: crio
+    state: started
+    enabled: yes
+    daemon_reload: yes
